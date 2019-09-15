@@ -1,0 +1,50 @@
+- hosts: jenkins
+  pre_tasks:
+    - name: Verify Ansible meets jenkins_plugin version requirements.
+      assert:
+        that: "ansible_version.full is version_compare('2.10', '>=')"
+        msg: "You must update Ansible to at least 2.10 to use this cookbook"
+  become: true
+
+  tasks:
+    - name: Waiting for Jenkins to start
+      wait_for:
+        port: 8080
+
+    - name: Initiate the fact
+      set_fact:
+        jenkins_restart_required: no
+
+    - name: Installing Jenkins Plugins
+      jenkins_plugin:
+        name: "{{item}}"
+        url_username: admin
+        url_password: "{{lookup('file', 'jenkins_password.txt')}}" # you have to add this file yourself
+
+      register: jenkins_plugin_result
+      with_items:
+        - ssh-slaves
+        - cloudbees-folder        # allows us to have folders
+        - rebuild                 # nice rebuild button to rerun a job with the same parameters
+        - console-badge           # magic button to see the console
+        - build-name-setter       # allow builds to change their names
+        - build-timestamp         # show timestamps
+        - build-with-parameters   # allows (github) hooks to trigger builds
+        - build-user-vars-plugin  # allow jenkinsfiles to get the current jenkins user
+        - workflow-aggregator     # jenkins pipeline
+        - git
+
+        # needed when one has real users
+        # - matrix-auth
+        # - pam-auth
+        # - ldap
+        # - role-strategy
+        # - active-directory
+
+
+    - name: Restart Jenkins if required
+      service:
+        name: jenkins
+        state: restarted
+      when: jenkins_plugin_result.changed
+

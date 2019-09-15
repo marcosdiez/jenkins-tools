@@ -1,0 +1,57 @@
+- hosts: jenkins
+  become: true
+  tasks:
+    - apt:
+        name:
+          - python3-apt
+          - wget
+          - git
+          - default-jre-headless
+          - gnupg # to add the jenkins repository
+          - net-tools
+          - curl
+        update_cache: yes
+        cache_valid_time: 86400
+
+    - name: Adding Jenkins apt repository key
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+        state: present
+
+    - name: Adding Jenkins apt repository
+      apt_repository:
+        repo: 'deb https://pkg.jenkins.io/debian-stable binary/'
+        state: present
+        filename: jenkins
+        update_cache: yes
+
+    - name: Installing Jenkins
+      apt:
+        name:
+          - jenkins
+        update_cache: yes
+        cache_valid_time: 86400
+
+    - name: Start the server
+      service:
+        name: jenkins
+        state: started
+        enabled: true
+
+    - name: Waiting for Jenkins to start
+      wait_for:
+        port: 8080
+        # path: /var/lib/jenkins/secrets/initialAdminPassword
+
+    - name: Waiting for Jenkins Initial Admin Password to be Available
+      wait_for:
+        path: /var/lib/jenkins/secrets/initialAdminPassword
+
+    - name: Grab Initial Jenkins Password
+      command: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkinspwd
+
+    - debug: msg="Initial Jenkins Admin password is {{ jenkinspwd.stdout }} . Jenkins port is 8080"
+    - debug: var=hostvars[inventory_hostname]['ansible_default_ipv4']['address']
+    - debug: var=hostvars[inventory_hostname]['ansible_default_ipv6']['address']
+
