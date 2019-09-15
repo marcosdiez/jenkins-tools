@@ -107,10 +107,35 @@ class JenkinsSync():
         result = result.replace("JENKINS_PIPELINE_SCRIPT_GOES_HERE", html.escape(pipeline))
         return result
 
-    def _add_file(self, filename):
-        print("Loading {} into Jenkins ...".format(filename))
+    def _send_to_jenkins(self, filename):
+        print("Sending {} to Jenkins ...".format(filename))
         with open(filename) as the_file:
             file_content = the_file.read()
+        self._check_for_syntax_errors(file_content)
+        xml = self._create_xml(file_content)
+        self._make_sure_folder_exists_in_jenkins(filename)
+        self._send_to_jenkins_helper(filename, xml)
+
+    def _send_to_jenkins_helper(self, filename, xml):
+        job_title = filename.replace(".Jenkinsfile", "")
+        if job_title.startswith("." + os.sep):
+            job_title = job_title[2:]
+        self.server.upsert_job(job_title, xml)
+
+    def _make_sure_folder_exists_in_jenkins(self, filename):
+        if filename.startswith("." + os.sep):
+            filename = filename[2:]
+        filename_array = filename.split(os.sep)
+        del filename_array[-1] # delete the file name itself
+
+        full_folder_path = ""
+        for folder in filename_array:
+            full_folder_path =os.path.join(full_folder_path, folder)
+            print("Attempting to create folder [{}]".format(full_folder_path))
+            self.server.create_folder(full_folder_path, ignore_failures=True)
+
+
+    def _check_for_syntax_errors(self, file_content):
         errors = self.server.check_jenkinsfile_syntax(file_content)
         for error in errors:
             # https://issues.jenkins-ci.org/browse/JENKINS-59378
@@ -119,11 +144,6 @@ class JenkinsSync():
             if "did not contain the \'pipeline\' step" not in error.get("error", ""):
                 print(error)
                 sys.exit(1)
-        xml = self._create_xml(file_content)
-        job_title = filename.replace(".Jenkinsfile", "")
-        if job_title.startswith("./"):
-            job_title = job_title[2:]
-        self.server.upsert_job(job_title, xml)
 
     def _dump_diff(self, diff):
         print(json.dumps(diff, sort_keys=True, indent=2))
@@ -139,12 +159,82 @@ class JenkinsSync():
 
     def _send_updated_files(self, diff):
         for filename in diff["changed"]:
-            self._add_file(filename)
+            self._send_to_jenkins(filename)
         for filename in diff["deleted"]:
-            print("Deleting [{}]".format(filename))
+            print("Deleting job [{}]".format(filename))
             if filename.startswith("." + os.sep):
                 filename = filename[2:]
-            self.server.delete_job(filename.replace(".Jenkinsfile", ""))
+            try:
+                self.server.delete_job(filename.replace(".Jenkinsfile", ""))
+            except jenkins.NotFoundException:
+                # somebody already deleted the job. great!
+                pass
+        self._delete_empty_folders_we_might_have_created(diff)
+
+    def _delete_empty_folders_we_might_have_created(self, diff):
+        folders_to_delete = self._get_folders_to_erase(diff)
+        jenkins_folders = self._get_jenkins_folder_structure(self.server.get_jobs())
+        # print(json.dumps(jekins_folders, sort_keys=2, indent=2))
+        # print(folders_to_delete)
+        for folder_to_delete in folders_to_delete:
+            self._delete_empty_folders_we_might_have_created_helper(jenkins_folders, folder_to_delete)
+
+
+    def _get_jenkins_folder_structure(self, job_list):
+        result = {}
+        for a_job in job_list:
+            result[a_job["name"]] = a_job
+            if "jobs" in a_job:
+                a_job["jobs"] = self._get_jenkins_folder_structure(a_job["jobs"])
+        return result
+
+    def _delete_empty_folders_we_might_have_created_helper(self, jenkins_folders, folder_to_delete):
+        original_jenkins_folders = {"jobs": jenkins_folders}
+
+        folder_array = folder_to_delete.split(os.sep)
+        # print(folder_array)
+
+        while len(folder_array) > 0:
+            jenkins_folders = original_jenkins_folders
+            previous_jenkins_folders = jenkins_folders
+            for a_folder in folder_array:
+                # print(a_folder)
+                previous_jenkins_folders = jenkins_folders
+                if a_folder not in jenkins_folders["jobs"]:
+                    # the folder has already been deleted in some previou execution of this program, which crashed
+                    break
+                jenkins_folders = jenkins_folders["jobs"][a_folder]
+
+            # print(jenkins_folders)
+            jenkins_path_to_delete = os.sep.join(folder_array) #.join(os.sep)
+            if isinstance(jenkins_folders.get("jobs"), dict) and \
+                            len(jenkins_folders.get("jobs")) == 0 \
+                and jenkins_folders.get("_class") == 'com.cloudbees.hudson.plugins.folder.Folder':
+
+                print("Deleting folder [{}]".format(jenkins_path_to_delete))
+                self.server.delete_job(jenkins_path_to_delete)
+                del previous_jenkins_folders["jobs"][jenkins_folders["name"]]
+            else:
+                print("Folder [{}] is not empty. It won't be deleted.".format(jenkins_path_to_delete))
+            del folder_array[-1]
+
+
+
+
+        pass
+
+    def _get_folders_to_erase(self, diff):
+        folders = []
+        for filename in diff["deleted"]:
+            pos = filename.rfind(os.sep)
+            if pos < 0:
+                continue
+            begin = 0
+            if filename.startswith("." + os.sep):
+                begin = 2
+            folders.append(filename[begin:pos])
+        folders = set(folders)  # remove duplicates
+        return folders
 
     def _save_state(self):
         print("Saving state...")
