@@ -32,6 +32,7 @@
         - build-with-parameters   # allows (github) hooks to trigger builds
         - build-user-vars-plugin  # allow jenkinsfiles to get the current jenkins user
         - workflow-aggregator     # jenkins pipeline
+        # - antisamy-markup-formatter # HTML descriptions
         - git
 
         # needed when one has real users
