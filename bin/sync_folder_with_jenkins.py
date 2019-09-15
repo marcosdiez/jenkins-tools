@@ -10,7 +10,7 @@ import jenkins
 
 
 class StateSync():
-    def __init__(self, state_file="state.json"):
+    def __init__(self, state_file):
         self._state_file = state_file
         self._current_state = {"files": {}}
         self._saved_state = self._load_state()
@@ -88,7 +88,7 @@ class JenkinsSync():
         groups = m.groups()
         if len(groups) == 0:
             return ""
-        return groups[0]
+        return groups[0].strip()
 
     @staticmethod
     def _create_xml(pipeline):
@@ -149,7 +149,7 @@ class JenkinsSync():
         print(json.dumps(diff, sort_keys=True, indent=2))
 
     def _create_list_of_files(self, rootDir):
-        self._statesync = StateSync(os.path.join(rootDir, "state.json"))
+        self._statesync = StateSync(os.path.join(rootDir, "jenkinssync.json"))
         for dirName, subdirList, fileList in os.walk(rootDir):
             subdirList.sort()
             for fname in sorted(fileList):
@@ -253,5 +253,5 @@ def get_jenkins_password():
         return the_file.read().strip()
 
 
-jenkins_sync = JenkinsSync('http://192.168.58.206:8080', username='admin', password=get_jenkins_password())
+jenkins_sync = JenkinsSync('http://192.168.58.207:8080', username='admin', password=get_jenkins_password())
 jenkins_sync.sync_folder_to_jenkins(".")
