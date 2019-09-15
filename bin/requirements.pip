@@ -1,0 +1,10 @@
+certifi==2019.9.11
+chardet==3.0.4
+idna==2.8
+multi-key-dict==2.0.3
+pbr==5.4.3
+pkg-resources==0.0.0
+-e git+https://github.com/marcosdiez/python-jenkins.git@master#egg=python-jenkins
+requests==2.22.0
+six==1.12.0
+urllib3==1.25.3
