@@ -119,19 +119,22 @@ class JenkinsSync():
         self.password = password
 
     def sync_folder_to_jenkins(self, rootDir):
-        self.create_list_of_files(rootDir)
+        self._create_list_of_files(rootDir)
         print("Files to sync:")
-        print(json.dumps(jenkins_sync._statesync.diff(), sort_keys=True, indent=2))
         diff = self._statesync.diff()
+        self._dump_diff(diff)
         if len(diff["changed"]) == 0 and len(diff["deleted"]) == 0:
             print("No changes were made. Nothing do do!")
             return
-        self.connect()
-        self.send_updated_files(diff)
-        self.save_state()
+        self._connect()
+        self._send_updated_files(diff)
+        self._save_state()
         print("Done")
 
-    def create_list_of_files(self, rootDir):
+    def _dump_diff(self, diff):
+        print(json.dumps(diff, sort_keys=True, indent=2))
+
+    def _create_list_of_files(self, rootDir):
         self._statesync = StateSync(os.path.join(rootDir, "state.json"))
         for dirName, subdirList, fileList in os.walk(rootDir):
             subdirList.sort()
@@ -140,7 +143,7 @@ class JenkinsSync():
                     full_path = os.path.join(dirName, fname)
                     self._statesync.add_file(full_path)
 
-    def send_updated_files(self, diff):
+    def _send_updated_files(self, diff):
         for filename in diff["changed"]:
             self._add_file(filename)
         for filename in diff["deleted"]:
@@ -149,11 +152,11 @@ class JenkinsSync():
                 filename = filename[2:]
             self.server.delete_job(filename.replace(".Jenkinsfile", ""))
 
-    def save_state(self):
+    def _save_state(self):
         print("Saving state...")
         self._statesync.save_state()
 
-    def connect(self):
+    def _connect(self):
         self.server = jenkins.Jenkins(self.url, self.username, self.password)
         user = self.server.get_whoami()
         version = self.server.get_version()
