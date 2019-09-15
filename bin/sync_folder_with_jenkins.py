@@ -1,15 +1,62 @@
 #!/usr/bin/env python3
 
-import jenkins
 import html
 import sys
 import re
 import os
+import hashlib
+import json
+import jenkins
 
 def get_jenkins_password():
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ansible", "jenkins_password.txt")
     with open(filename) as the_file:
         return the_file.read().strip()
+
+class StateSync():
+    def __init__(self, state_file="state.json"):
+        self._state_file = state_file
+        self._current_state = {"files": {}}
+        self._saved_state = self._load_state()
+
+    def _load_state(self):
+        if not os.path.exists(self._state_file):
+            return { "files": {} }
+        else:
+            with open(self._state_file) as the_file:
+                return json.load(the_file)
+
+    def _md5(self, fname):
+        hash_md5 = hashlib.md5()
+        with open(fname, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+
+    def add_file(self, filename):
+        self._current_state["files"][filename] = self._md5(filename)
+
+    def diff(self):
+        result = {
+            "changed": [],
+            "deleted": [],
+        }
+
+        for filename, hash in self._current_state["files"].items():
+            if hash != self._saved_state["files"].get(filename):
+                # if the file does not exist in _staved_state, it will return None which is different from hash
+                result["changed"].append(filename)
+
+        for filename in self._saved_state["files"].keys():
+            if filename not in self._current_state["files"]:
+                result["deleted"].append(filename)
+
+        return result
+
+    def save_state(self):
+        # print(json.dumps(self._current_state, sort_keys=True, indent=2))
+        with open(self._state_file, "w") as the_file:
+            json.dump(self._current_state, the_file, indent=2, sort_keys=True)
 
 class JenkinsSync():
 
@@ -65,27 +112,54 @@ class JenkinsSync():
         self.server.upsert_job(job_title, xml)
 
     def __init__(self, url, username=None, password=None):
-        self.server = jenkins.Jenkins(url, username, password)
+        self.statesync = None
+        self.server = None
+        self.url = url
+        self.username = username
+        self.password = password
 
+    def sync_folder_to_jenkins(self, rootDir):
+        self.create_list_of_files(rootDir)
+        print("Files to sync:")
+        print(json.dumps(jenkins_sync._statesync.diff(), sort_keys=True, indent=2))
+        diff = self._statesync.diff()
+        if len(diff["changed"]) == 0 and len(diff["deleted"]) == 0:
+            print("No changes were made. Nothing do do!")
+            return
+        self.connect()
+        self.send_updated_files(diff)
+        self.save_state()
+        print("Done")
 
-    def create_jenkinsfiles_from_folder(self, rootDir):
+    def create_list_of_files(self, rootDir):
+        self._statesync = StateSync(os.path.join(rootDir, "state.json"))
         for dirName, subdirList, fileList in os.walk(rootDir):
-            for fname in fileList:
+            subdirList.sort()
+            for fname in sorted(fileList):
                 if fname.endswith(".Jenkinsfile"):
-                    if dirName != ".":
-                        newDirName = dirName
-                        if newDirName.startswith("./"):
-                            newDirName = newDirName[2:]
-                        self.server.create_folder(newDirName, ignore_failures=True)
-                    self._add_file(os.path.join(dirName, fname))
+                    full_path = os.path.join(dirName, fname)
+                    self._statesync.add_file(full_path)
 
-    def banner(self):
+    def send_updated_files(self, diff):
+        for filename in diff["changed"]:
+            self._add_file(filename)
+        for filename in diff["deleted"]:
+            print("Deleting [{}]".format(filename))
+            if filename.startswith("." + os.sep):
+                filename = filename[2:]
+            self.server.delete_job(filename.replace(".Jenkinsfile", ""))
+
+    def save_state(self):
+        print("Saving state...")
+        self._statesync.save_state()
+
+    def connect(self):
+        self.server = jenkins.Jenkins(self.url, self.username, self.password)
         user = self.server.get_whoami()
         version = self.server.get_version()
         print('Connected as %s to Jenkins %s' % (user['fullName'], version))
 
 jenkins_sync = JenkinsSync('http://192.168.58.206:8080', username='admin', password=get_jenkins_password())
-jenkins_sync.banner()
-jenkins_sync.create_jenkinsfiles_from_folder(".")
-print("Done")
+jenkins_sync.sync_folder_to_jenkins(".")
+
 
