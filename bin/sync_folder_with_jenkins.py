@@ -253,5 +253,5 @@ def get_jenkins_password():
         return the_file.read().strip()
 
 
-jenkins_sync = JenkinsSync('http://192.168.58.207:8080', username='admin', password=get_jenkins_password())
+jenkins_sync = JenkinsSync('http://192.168.58.208:8080', username='admin', password=get_jenkins_password())
 jenkins_sync.sync_folder_to_jenkins(".")

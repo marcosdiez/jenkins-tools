@@ -1,0 +1,8 @@
+# Jenkins settings
+# more info here: https://plugins.jenkins.io/configuration-as-code
+
+
+jenkins:
+  markupFormatter:
+    rawHtml:
+      disableSyntaxHighlighting: false

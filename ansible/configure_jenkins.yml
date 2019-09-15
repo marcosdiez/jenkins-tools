@@ -20,6 +20,7 @@
         name: "{{item}}"
         url_username: admin
         url_password: "{{lookup('file', 'jenkins_password.txt')}}" # you have to add this file yourself
+        timeout: 300
 
       register: jenkins_plugin_result
       with_items:
@@ -33,6 +34,7 @@
         - build-user-vars-plugin  # allow jenkinsfiles to get the current jenkins user
         - workflow-aggregator     # jenkins pipeline
         - antisamy-markup-formatter # HTML descriptions
+        - configuration-as-code
         - git
 
         # needed when one has real users
@@ -48,4 +50,27 @@
         name: jenkins
         state: restarted
       when: jenkins_plugin_result.changed
+
+    - name: Copy Jenkins Config as Code Settings to Server
+      copy:
+        src: jenkins_as_a_code_settings.yaml
+        dest: /var/lib/jenkins/jenkins.yaml
+      register: jenkins_as_code_settigns_result
+
+    - name: "wait for Jenkins to finish restarting to come up"
+      uri:
+        url: "http://127.0.0.1:8080/"
+        status_code: 403
+      register: result
+      until: result.status == 403 or result.status == 200
+      retries: 60
+      delay: 3
+      when: jenkins_as_code_settigns_result.changed
+
+    - name: Load Jenkins Config as Code Settings
+      jenkins_script:
+        script: "{{lookup('file', 'files/reload.groovy')}}"
+        user: admin
+        password: "{{lookup('file', 'jenkins_password.txt')}}" # you have to add this file yourself
+      when: jenkins_as_code_settigns_result.changed
 
