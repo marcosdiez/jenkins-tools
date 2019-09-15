@@ -8,10 +8,6 @@ import hashlib
 import json
 import jenkins
 
-def get_jenkins_password():
-    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ansible", "jenkins_password.txt")
-    with open(filename) as the_file:
-        return the_file.read().strip()
 
 class StateSync():
     def __init__(self, state_file="state.json"):
@@ -21,7 +17,7 @@ class StateSync():
 
     def _load_state(self):
         if not os.path.exists(self._state_file):
-            return { "files": {} }
+            return {"files": {}}
         else:
             with open(self._state_file) as the_file:
                 return json.load(the_file)
@@ -58,7 +54,27 @@ class StateSync():
         with open(self._state_file, "w") as the_file:
             json.dump(self._current_state, the_file, indent=2, sort_keys=True)
 
+
 class JenkinsSync():
+    def __init__(self, url, username=None, password=None):
+        self.statesync = None
+        self.server = None
+        self.url = url
+        self.username = username
+        self.password = password
+
+    def sync_folder_to_jenkins(self, rootDir):
+        self._create_list_of_files(rootDir)
+        print("Files to sync:")
+        diff = self._statesync.diff()
+        self._dump_diff(diff)
+        if len(diff["changed"]) == 0 and len(diff["deleted"]) == 0:
+            print("No changes were made. Nothing do do!")
+            return
+        self._connect()
+        self._send_updated_files(diff)
+        self._save_state()
+        print("Done")
 
     @staticmethod
     def _get_description(pipeline):
@@ -76,7 +92,6 @@ class JenkinsSync():
 
     @staticmethod
     def _create_xml(pipeline):
-
         SAMPLE_XML = """
 <flow-definition plugin="workflow-job">
   <description>JENKINS_PIPELINE_DESCRIPTION_GOES_HERE</description>
@@ -88,7 +103,6 @@ class JenkinsSync():
   <disabled>false</disabled>
 </flow-definition>
     """
-
         result = SAMPLE_XML.replace("JENKINS_PIPELINE_DESCRIPTION_GOES_HERE", html.escape(JenkinsSync._get_description(pipeline)))
         result = result.replace("JENKINS_PIPELINE_SCRIPT_GOES_HERE", html.escape(pipeline))
         return result
@@ -110,26 +124,6 @@ class JenkinsSync():
         if job_title.startswith("./"):
             job_title = job_title[2:]
         self.server.upsert_job(job_title, xml)
-
-    def __init__(self, url, username=None, password=None):
-        self.statesync = None
-        self.server = None
-        self.url = url
-        self.username = username
-        self.password = password
-
-    def sync_folder_to_jenkins(self, rootDir):
-        self._create_list_of_files(rootDir)
-        print("Files to sync:")
-        diff = self._statesync.diff()
-        self._dump_diff(diff)
-        if len(diff["changed"]) == 0 and len(diff["deleted"]) == 0:
-            print("No changes were made. Nothing do do!")
-            return
-        self._connect()
-        self._send_updated_files(diff)
-        self._save_state()
-        print("Done")
 
     def _dump_diff(self, diff):
         print(json.dumps(diff, sort_keys=True, indent=2))
@@ -162,7 +156,12 @@ class JenkinsSync():
         version = self.server.get_version()
         print('Connected as %s to Jenkins %s' % (user['fullName'], version))
 
+
+def get_jenkins_password():
+    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ansible", "jenkins_password.txt")
+    with open(filename) as the_file:
+        return the_file.read().strip()
+
+
 jenkins_sync = JenkinsSync('http://192.168.58.206:8080', username='admin', password=get_jenkins_password())
 jenkins_sync.sync_folder_to_jenkins(".")
-
-
