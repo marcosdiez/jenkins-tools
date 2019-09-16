@@ -22,7 +22,10 @@ After the script is executed, it saves the list of files it uploaded to jenkins 
 Which means whenever you run the script again, it will compare the current state on the disk with the contents of `jenkinssync.json`, adding or updating new files and deleting removed ones. If after a file is removed it's folder in Jenkins is empty, the folder will be removed as well.
 
 AFAIK, some job information like the Job Description can not be saved in a Jenkinsfile.
-Well... So here is a little hack: if the Jenkinsfile contains a like starting with `// description: `, whatever comes after that will be the job description.
+So we have a little hack to add it as a setting. If the Jenkinsfile contains a line starting with:
+
+* `// description: ` whatever comes after that will be the job description. HTML tags are allowed.
+* `// authToken: ` whatever comes after that will be authToken for the [Build With Parameters](https://wiki.jenkins-ci.org/display/JENKINS/Build+With+Parameters+Plugin) plugin.
 
 Author: Marcos Diez <marcos AT unitron DOT com DOT br>
 License: GPLv2

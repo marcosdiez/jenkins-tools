@@ -77,11 +77,11 @@ class JenkinsSync():
         print("Done")
 
     @staticmethod
-    def _get_description(pipeline):
+    def _get_setting_from_jenkinsfile(the_regex, pipeline):
         # not supported by jenkinsfiles
-        # so we hack and make sure a // description: THE_DESCRIPTION
+        # so we hack and make sure the setting exists as a comment
         # exists somewhere in the jenkinsfile
-        m = re.search(r"^//\s*description:\s*(.+)", pipeline, re.MULTILINE)
+        m = re.search(the_regex, pipeline, re.MULTILINE)
         if m is None:
             return ""
 
@@ -89,6 +89,17 @@ class JenkinsSync():
         if len(groups) == 0:
             return ""
         return groups[0].strip()
+
+    @staticmethod
+    def _get_description(pipeline):
+        return JenkinsSync._get_setting_from_jenkinsfile(r"^//\s*description:\s*(.+)", pipeline)
+
+    @staticmethod
+    def _get_authtoken(pipeline):
+        authtoken = JenkinsSync._get_setting_from_jenkinsfile(r"^//\s*authToken:\s*(.+)", pipeline)
+        if authtoken is None or authtoken == "":
+            return ""
+        return "<authToken>{}</authToken>".format(authtoken)
 
     @staticmethod
     def _create_xml(pipeline):
@@ -100,10 +111,12 @@ class JenkinsSync():
     <sandbox>false</sandbox>
   </definition>
   <triggers/>
+  JENKINS_PIPELINE_AUTHTOKEN_GOES_HERE
   <disabled>false</disabled>
 </flow-definition>
     """
         result = SAMPLE_XML.replace("JENKINS_PIPELINE_DESCRIPTION_GOES_HERE", html.escape(JenkinsSync._get_description(pipeline)))
+        result = SAMPLE_XML.replace("JENKINS_PIPELINE_AUTHTOKEN_GOES_HERE", JenkinsSync._get_authtoken(pipeline))
         result = result.replace("JENKINS_PIPELINE_SCRIPT_GOES_HERE", html.escape(pipeline))
         return result
 
