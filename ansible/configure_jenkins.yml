@@ -32,6 +32,7 @@
         - build-timestamp         # show timestamps
         - build-with-parameters   # allows (github) hooks to trigger builds
         - build-user-vars-plugin  # allow jenkinsfiles to get the current jenkins user
+        - build-token-root        # allows github to trigger builds even when an anonymous user has no read permission
         - workflow-aggregator     # jenkins pipeline
         - antisamy-markup-formatter # HTML descriptions
         - configuration-as-code
