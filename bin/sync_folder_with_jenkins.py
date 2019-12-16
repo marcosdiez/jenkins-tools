@@ -49,8 +49,9 @@ class StateSync():
 
         return result
 
-    def save_state(self):
-        # print(json.dumps(self._current_state, sort_keys=True, indent=2))
+    def save_state(self, debug=False):
+        if debug:
+            print(json.dumps(self._current_state, sort_keys=True, indent=2))
         with open(self._state_file, "w") as the_file:
             json.dump(self._current_state, the_file, indent=2, sort_keys=True)
 
@@ -265,6 +266,6 @@ def get_jenkins_password():
     with open(filename) as the_file:
         return the_file.read().strip()
 
-
-jenkins_sync = JenkinsSync('http://192.168.58.208:8080', username='admin', password=get_jenkins_password())
-jenkins_sync.sync_folder_to_jenkins(".")
+if __name__ == "__main__":
+    jenkins_sync = JenkinsSync('http://192.168.58.208:8080', username='admin', password=get_jenkins_password())
+    jenkins_sync.sync_folder_to_jenkins(".")
