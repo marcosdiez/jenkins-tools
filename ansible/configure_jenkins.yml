@@ -36,6 +36,7 @@
         - workflow-aggregator     # jenkins pipeline
         - antisamy-markup-formatter # HTML descriptions
         - configuration-as-code
+        - extensible-choice-parameter # text box with pre defined values as suggestions
         - git
 
         # needed when one has real users
