@@ -25,26 +25,32 @@
       register: jenkins_plugin_result
       with_items:
         - ssh-slaves
-        - cloudbees-folder        # allows us to have folders
-        - rebuild                 # nice rebuild button to rerun a job with the same parameters
-        - console-badge           # magic button to see the console
-        - build-name-setter       # allow builds to change their names
-        - build-timestamp         # show timestamps
-        - build-with-parameters   # allows (github) hooks to trigger builds
-        - build-user-vars-plugin  # allow jenkinsfiles to get the current jenkins user
-        - build-token-root        # allows github to trigger builds even when an anonymous user has no read permission
-        - workflow-aggregator     # jenkins pipeline
-        - antisamy-markup-formatter # HTML descriptions
+        - cloudbees-folder            # allows us to have folders
+        - rebuild                     # nice rebuild button to rerun a job with the same parameters
+        # - console-badge               # magic button to see the console
+        - build-name-setter           # allow builds to change their names
+        - build-timestamp             # show timestamps
+        - build-with-parameters       # allows (github) hooks to trigger builds
+        - build-user-vars-plugin      # allow jenkinsfiles to get the current jenkins user
+        - build-token-root            # allows github to trigger builds even when an anonymous user has no read permission
+        - build-timeout               # This plugin allows builds to be automatically terminated after the specified amount of time has elapsed.
+        - pipeline-utility-steps      # many cool pipeline methods, like read json, csv, etc
+        - workflow-aggregator         # jenkins pipeline
+        - antisamy-markup-formatter   # HTML descriptions
+        - credentials-binding         # Allows credentials to be bound to environment variables for use from miscellaneous build steps.
         - configuration-as-code
         - extensible-choice-parameter # text box with pre defined values as suggestions
         - git
+        - credentials-plugin          # https://github.com/jenkinsci/credentials-plugin/blob/master/docs/user.adoc
+        - timestamper
+        - ws-cleanup                  # This plugin deletes the project workspace when invoked.
 
         # needed when one has real users
-        # - matrix-auth
-        # - pam-auth
-        # - ldap
-        # - role-strategy
-        # - active-directory
+        - matrix-auth
+        - pam-auth
+        - ldap
+        - role-strategy
+        - active-directory
 
 
     - name: Restart Jenkins if required

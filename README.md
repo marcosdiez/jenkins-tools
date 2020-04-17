@@ -29,3 +29,5 @@ So we have a little hack to add it as a setting. If the Jenkinsfile contains a l
 
 Author: Marcos Diez <marcos AT unitron DOT com DOT br>
 License: GPLv2
+
+https://github.com/dennyzhang/cheatsheet-jenkins-groovy-A4
